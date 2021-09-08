@@ -1,0 +1,245 @@
+device: cuda:0
+Apply FBP as a ratio of uniform prior bound: M * log(K) = 4 * log(256)
+Bound: 22.1807, Ratio: 0.6000, FBP: 14
+config: {
+  "analyze": {
+    "batch_size": 64,
+    "split": [
+      "train",
+      "val",
+      "test"
+    ]
+  },
+  "cbow": {
+    "d_model": 64
+  },
+  "ckpt_path": "none",
+  "classifier": {
+    "add_layer": "none",
+    "aggregate": "mean",
+    "freeze_encoder": 1,
+    "merge_word": "concat",
+    "reembedding": 0,
+    "type": "log_reg"
+  },
+  "concrete": {
+    "hard": 1,
+    "kl": {
+      "beta": 1,
+      "fbp_ratio": 0.6,
+      "fbp_threshold": 14,
+      "prior_logits": "uniform",
+      "prior_tau": 1,
+      "type": "categorical"
+    },
+    "tau": {
+      "anneal": {
+        "base": 0.5,
+        "interval": 1000,
+        "rate": 0.0001
+      },
+      "init": 0.67,
+      "mode": "fix"
+    }
+  },
+  "d_model": 64,
+  "data_dir": "/home/yuerxin/discrete-text-rep/cls_data_dir",
+  "em": {
+    "relax": 1
+  },
+  "exp_dir": "/home/yuerxin/discrete-text-rep/demo",
+  "expname": "demo",
+  "lstm": {
+    "d_model": 64,
+    "enc_ndirections": 2,
+    "enc_nlayers": 1,
+    "h_dim": 50
+  },
+  "max_word_v_size": 30000,
+  "model": "quantized_transformer",
+  "noam": {
+    "beta1": 0.9,
+    "beta2": 0.98,
+    "eps": 1e-09,
+    "factor": 1,
+    "lr": 0,
+    "warmup": 2000,
+    "weight_decay": 0
+  },
+  "phase": "pretrain",
+  "pretrain": {
+    "batch_size": 64,
+    "em_iter": 1,
+    "em_train": 0,
+    "grad_norm": 5,
+    "log_every": 100,
+    "lr": 0.001,
+    "max_epochs": 10,
+    "patience": 5,
+    "tensorboard": 1,
+    "use_noam": 0,
+    "val_data_limit": 5000,
+    "val_interval": 500
+  },
+  "quantizer": {
+    "K": 256,
+    "M": 4,
+    "level": "sentence",
+    "type": "vq"
+  },
+  "root_dir": "/home/yuerxin/discrete-text-rep",
+  "run_dir": "/home/yuerxin/discrete-text-rep/demo/ag_sentence_vq",
+  "runname": "ag_sentence_vq",
+  "seed": 1234,
+  "sub_run_dir": "/home/yuerxin/discrete-text-rep/demo/ag_sentence_vq/none",
+  "sub_runname": "none",
+  "target": {
+    "batch_size": 8,
+    "grad_norm": 5,
+    "log_every": 100,
+    "lr": 0.0003,
+    "max_epochs": 1000,
+    "patience": 10,
+    "sample_first": 1,
+    "test": 0,
+    "train_num": 200,
+    "train_ratio": "none",
+    "use_noam": 0,
+    "val_data_limit": 5000,
+    "val_interval": 25
+  },
+  "target-200-tmpl": {
+    "batch_size": 8,
+    "max_epochs": 1000,
+    "patience": 10,
+    "train_num": 200,
+    "val_interval": 25
+  },
+  "target-2500-tmpl": {
+    "batch_size": 32,
+    "max_epochs": 1000,
+    "patience": 5,
+    "train_num": 2500,
+    "val_interval": 100
+  },
+  "target-500-tmpl": {
+    "batch_size": 16,
+    "max_epochs": 1000,
+    "patience": 10,
+    "train_num": 500,
+    "val_interval": 30
+  },
+  "target-full-tmpl": {
+    "batch_size": 64,
+    "max_epochs": 10,
+    "patience": 5,
+    "train_num": "none",
+    "val_interval": 500
+  },
+  "target-tmpl": {
+    "batch_size": 64,
+    "grad_norm": 5,
+    "log_every": 100,
+    "lr": 0.0003,
+    "max_epochs": 10,
+    "patience": 5,
+    "sample_first": 1,
+    "test": 0,
+    "train_num": "none",
+    "train_ratio": "none",
+    "use_noam": 0,
+    "val_data_limit": 5000,
+    "val_interval": 500
+  },
+  "task": "ag",
+  "transformer": {
+    "d_ffn": 256,
+    "d_model": 64,
+    "dropout": 0.2,
+    "enc_nlayer": 1,
+    "nhead": 4
+  },
+  "vq": {
+    "commitment_cost": 0.001,
+    "ema": {
+      "decay": 0.99,
+      "epsilon": 1e-09
+    },
+    "init": "xavier_uniform",
+    "use_ema": 0
+  },
+  "word_freq_thresh": 0
+}
+
+
+Loaded vocab from /home/yuerxin/discrete-text-rep/demo/ag_vocab
+Loading token dictionary from /home/yuerxin/discrete-text-rep/demo/ag_vocab.
+Vocab namespace tokens: size 30004
+TransformerEncoderDecoder(
+  #encoder
+  (encoder): TransformerQuantizerEncoder(
+    (embedding): Embedding(30004, 64, padding_idx=0)
+    (pos_encoder): PositionalEncoding(
+      (dropout): Dropout(p=0.2, inplace=False)
+    )
+    (encoder): TransformerEncoder(
+      (layers): ModuleList(
+        (0): TransformerEncoderLayer(
+          (self_attn): MultiheadAttention(
+            (out_proj): _LinearWithBias(in_features=64, out_features=64, bias=True)
+          )
+          (linear1): Linear(in_features=64, out_features=256, bias=True)
+          (dropout): Dropout(p=0.2, inplace=False)
+          (linear2): Linear(in_features=256, out_features=64, bias=True)
+          (norm1): LayerNorm((64,), eps=1e-05, elementwise_affine=True)
+          (norm2): LayerNorm((64,), eps=1e-05, elementwise_affine=True)
+          (dropout1): Dropout(p=0.2, inplace=False)
+          (dropout2): Dropout(p=0.2, inplace=False)
+        )
+      )
+    )
+    (quantizer): DVQ(
+      (vq_layers): ModuleList(
+        (0): VectorQuantizer(
+          (_embedding): Embedding(256, 64)
+        )
+        (1): VectorQuantizer(
+          (_embedding): Embedding(256, 64)
+        )
+        (2): VectorQuantizer(
+          (_embedding): Embedding(256, 64)
+        )
+        (3): VectorQuantizer(
+          (_embedding): Embedding(256, 64)
+        )
+      )
+    )
+    (pooler): Pooler(
+      (project): Linear(in_features=64, out_features=256, bias=True)
+    )
+  )
+
+  #decoder
+  (decoder_layer): TransformerDecoderLayer(
+    (self_attn): MultiheadAttention(
+      (out_proj): _LinearWithBias(in_features=64, out_features=64, bias=True)
+    )
+    (multihead_attn): MultiheadAttention(
+      (out_proj): _LinearWithBias(in_features=64, out_features=64, bias=True)
+    )
+    (linear1): Linear(in_features=64, out_features=256, bias=True)
+    (dropout): Dropout(p=0.2, inplace=False)
+    (linear2): Linear(in_features=256, out_features=64, bias=True)
+    (norm1): LayerNorm((64,), eps=1e-05, elementwise_affine=True)
+    (norm2): LayerNorm((64,), eps=1e-05, elementwise_affine=True)
+    (norm3): LayerNorm((64,), eps=1e-05, elementwise_affine=True)
+    (dropout1): Dropout(p=0.2, inplace=False)
+    (dropout2): Dropout(p=0.2, inplace=False)
+    (dropout3): Dropout(p=0.2, inplace=False)
+  )
+
+  (classifier): Sequential(
+    (0): Linear(in_features=64, out_features=30004, bias=True)
+    (1): LogSoftmax(dim=-1)
+  )
+)
