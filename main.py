@@ -94,6 +94,7 @@ def main(cl_arguments):
             if config.ckpt_path != "none":
                 if config.ckpt_path == "current":
                     ckpt_path = current_run_ckpt(config)
+                print("ckpt_path",ckpt_path)
                 load_encoder(encoder, ckpt_path)
             cls = QuantizerforClassification(config, encoder)
         else:

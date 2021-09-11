@@ -32,11 +32,15 @@ class QuantizerforClassification(nn.Module):
 
         self.criterion = nn.CrossEntropyLoss(reduction="sum")
 
-        enc_out_dim = self.encoder.get_output_dim()
-        D = self.encoder.quantizer.D
+        enc_out_dim = self.encoder.get_output_dim() #64
+        print("enc_out_dim",enc_out_dim)
 
+        D = self.encoder.quantizer.D #64
+        print("D",D)
         # reembedding
         self.reembedding = config.classifier.reembedding
+        print("self.reembedding", self.reembedding)
+        
         if self.reembedding == 1:
             if config.quantizer.level == "word":
                 # add padding idx
@@ -81,14 +85,16 @@ class QuantizerforClassification(nn.Module):
         )
 
     def forward(self, batch):
-
+        # print("batch_before", batch)
         input = input_from_batch(batch)
-        enc_in = input["enc_in"]
+        # print("input", input)
+        enc_in = input["enc_in"] #[batch, batch_len]
+        print("enc_in",enc_in,enc_in.size())
         batch_size = enc_in.shape[0]
 
         # encode
         enc_outdict = self.encoder(enc_in)
-
+        # print("enc_outdict", enc_outdict)
         # reemb
         if self.reembedding == 0:
             emb_seq = enc_outdict["quantizer_out"]["quantized_stack"]
@@ -96,23 +102,27 @@ class QuantizerforClassification(nn.Module):
             idx_seq = enc_outdict["quantizer_out"]["encoding_indices"]
             emb_seq = self._reemb(idx_seq)
         # merge word split
-        emb_seq = self._merge_word_split(emb_seq)
+        print("emb_seq",emb_seq, emb_seq.size())
+        emb_seq = self._merge_word_split(emb_seq) #没有做什么操作，把矩阵形状重置了。[batch,batch_len,64]
         enc_outdict["sequence"] = emb_seq
+        print("emb_seq",emb_seq,emb_seq.size())
 
         # add layer
         enc_outdict = self._add_layer(enc_outdict)
+        print("emb_seq[sequence]",enc_outdict["sequence"], enc_outdict["sequence"].size())
 
-        pooled_out = self.pooler.forward_dict(enc_outdict)
-        logits = self.classifier(pooled_out)
+        pooled_out = self.pooler.forward_dict(enc_outdict) #[batch,64]
+        print("pooled_out",pooled_out, pooled_out.size())
+        logits = self.classifier(pooled_out) #[8,4]
+        print("logits",logits,logits.size())
 
         loss = self.criterion(logits, batch["labels"])
-        pred = torch.argmax(logits, dim=-1)
-
+        pred = torch.argmax(logits, dim=-1) #[8]
+        print("pred",pred,pred.size())
         out = {
             "pred": pred,
             "loss": loss,
         }
-
         return out
 
     # TODO
@@ -333,15 +343,15 @@ class TransformerQuantizerEncoder(nn.Module):
         memory = self.encoder(
             src_emb, src_key_padding_mask=src_pad_mask, mask=src_mask
         ).transpose(0, 1) #[batch, batch_len, 64]
-        print("memory",memory,memory.size())
+        # print("memory",memory,memory.size())
 
         if self.quantizer_level == "word":
             # bsz × T × (M * D) or bsz × T × (M * K)
             memory = self.project_before_quantizer(memory) # [batch, batch_len, 64] 这里没有操作。
             packed_memory = pack_padded_sequence(
-                memory, lengths=nopad_lengths, batch_first=True, enforce_sorted=False
+                memory, lengths=nopad_lengths.cpu(), batch_first=True, enforce_sorted=False
             ) #把原来为0的地方给处理了，返回两个参数 data和batch_sizes https://zhuanlan.zhihu.com/p/342685890
-            print("packed_memory", packed_memory)
+            # print("packed_memory", packed_memory)
             quantizer_out = self.quantizer(packed_memory)
             # bsz × T × (M * D)
             enc_out = quantizer_out["quantized"]
@@ -430,7 +440,7 @@ class TransformerEncoderDecoder(nn.Module):
         self.kl_beta = config.concrete.kl.beta
 
     def forward(self, batch):
-        print("batch", batch,batch["input1"]["words"].size())
+        # print("batch", batch,batch["input1"]["words"].size())
         
         input = input_from_batch(batch)
         src = input["enc_in"] #[batch,batch_len]
@@ -439,8 +449,8 @@ class TransformerEncoderDecoder(nn.Module):
         # encoderrc
         enc_outdict = self.encoder(src)
         memory = enc_outdict["sequence"].transpose(0, 1) #[batch_len, batch, 64]
-        print("memory",memory,memory.size())
-        exit()
+        # print("memory",memory,memory.size())
+        # exit()
         return self.decode(input, memory, enc_outdict)
 
     def decode(self, input, memory, enc_outdict):

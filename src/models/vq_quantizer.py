@@ -60,14 +60,14 @@ class VectorQuantizer(nn.Module):
 
         # support PackedSequence
         packed_seq_util = PackedSequneceUtil()
-        print("inputs_org",inputs)
+        # print("inputs_org",inputs)
         inputs = packed_seq_util.preprocess(inputs) #seq:[batch,64] #word:
-        print("inputs_after",inputs, inputs.size())
+        # print("inputs_after",inputs, inputs.size())
         input_shape = inputs.shape  # bsz × decompose × D or (bsz * decompose) × D [batch,64]
-        print("input_shape",input_shape)
+        # print("input_shape",input_shape)
         # Flatten input (bsz * decompose) × D
         flat_input = inputs.view(-1, self._embedding_dim) #[batch,64]
-        print("flat_input",flat_input.size())
+        # print("flat_input",flat_input.size())
         # l2 distances between z_e and embedding vectors: (bsz * decompose) × K
         distances = (
             torch.sum(flat_input ** 2, dim=1, keepdim=True)
@@ -78,28 +78,28 @@ class VectorQuantizer(nn.Module):
         part2 = torch.sum(self._embedding.weight ** 2, dim=1)
         p12 = part1+part2
         part3 = 2 * torch.matmul(flat_input, self._embedding.weight.t())
-        print("part1", part1, part1.size())
-        print("part2", part2, part2.size())
-        print("part1+part2", p12, p12.size())
-        print("part3", part3, part3.size())
-        print("distances",distances,distances.size())
+        # print("part1", part1, part1.size())
+        # print("part2", part2, part2.size())
+        # print("part1+part2", p12, p12.size())
+        # print("part3", part3, part3.size())
+        # print("distances",distances,distances.size())
         """
         encoding_indices: Tensor containing the discrete encoding indices, i.e.
         which element of the quantized space each input element was mapped to.
         """
         # encoding_indices: bsz * decompose
         min_distances, encoding_indices = torch.min(distances, dim=1) #min_distances = [batch] 代表每一行和dis_embedding最短距离，encoding_indices=[batch]，代表是dis_embedding编号。
-        print("min_distances",min_distances,min_distances.size())
-        print("encoding_indices",encoding_indices,encoding_indices.size())
+        # print("min_distances",min_distances,min_distances.size())
+        # print("encoding_indices",encoding_indices,encoding_indices.size())
         # (bsz * decompose) × K
         encodings = F.one_hot(encoding_indices, self._num_embeddings).float()
-        print("encodings",encodings, encodings.size())
+        # print("encodings",encodings, encodings.size())
         # Quantize and unflatten
         quantized = self._embedding(encoding_indices).view(input_shape) #[batch,64]
-        print("quantized",quantized,quantized.size()) 
+        # print("quantized",quantized,quantized.size()) 
         # straight through gradient
         quantized_st = inputs + (quantized - inputs).detach()
-        print("quantized_st",quantized_st,quantized_st.size())
+        # print("quantized_st",quantized_st,quantized_st.size())
         # for EMA, only update embedding when training
         if self.ema and self.training:
             self.ema_update(encodings, flat_input)
@@ -117,9 +117,9 @@ class VectorQuantizer(nn.Module):
             quantized_st = packed_seq_util.postprocess(quantized_st, pad=0.0)
             encoding_indices = packed_seq_util.postprocess(encoding_indices, pad=-1)
             min_distances = packed_seq_util.postprocess(min_distances, pad=-1)
-            print("quantized_st",quantized_st,quantized_st.size())
-            print("encoding_indices",encoding_indices,encoding_indices.size())
-            print("min_distances",min_distances,min_distances.size())
+            # print("quantized_st",quantized_st,quantized_st.size())
+            # print("encoding_indices",encoding_indices,encoding_indices.size())
+            # print("min_distances",min_distances,min_distances.size())
         else:
             encoding_indices = encoding_indices.contiguous().view(input_shape[:-1])
             min_distances = min_distances.contiguous().view(input_shape[:-1])
@@ -131,7 +131,7 @@ class VectorQuantizer(nn.Module):
             "min_distances": min_distances,
             "loss_commit": loss_commit,
         }
-        exit()
+        # exit()
         return output_dict
 
     def ema_init(self):
@@ -215,17 +215,17 @@ class DVQ(nn.Module):
         """
         inputs: B × T (optional) × (M * D)
         """
-        print("inputs",inputs) #[batch,256]
+        # print("inputs",inputs) #[batch,256]
         slices = self.decompose(inputs, self.decompose_option) #这里slices变成4了 就是看几个离散向量代表一个句子/单词
-        print("slices",slices)
+        # print("slices",slices)
         
         # apply vq to each slice separately
         vq_out_list = []
         for slice, vq_layer in zip(slices, self.vq_layers):
             vq_out = vq_layer(slice)  #每一层是一个输出,一共层 (1,batch,64) (2,batch,64) (3,batch,64) (4,batch,64)
             vq_out_list.append(vq_out) 
-        print("vq_out",vq_out)
-        print("vq_out_list",len(vq_out_list))
+        # print("vq_out",vq_out)
+        # print("vq_out_list",len(vq_out_list))
         # aggregate results
         aggregate_out = {}
         keys = vq_out_list[0].keys()
@@ -233,7 +233,7 @@ class DVQ(nn.Module):
             aggregate_out[k] = []
             for vq_out in vq_out_list:
                 aggregate_out[k].append(vq_out[k])
-        print("aggregate_out",aggregate_out)
+        # print("aggregate_out",aggregate_out)
         
         
         # combine by concatenation
