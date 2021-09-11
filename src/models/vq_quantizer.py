@@ -61,8 +61,8 @@ class VectorQuantizer(nn.Module):
         # support PackedSequence
         packed_seq_util = PackedSequneceUtil()
         print("inputs_org",inputs)
-        inputs = packed_seq_util.preprocess(inputs) #[batch,64]
-        print("inputs_after",inputs)
+        inputs = packed_seq_util.preprocess(inputs) #seq:[batch,64] #word:
+        print("inputs_after",inputs, inputs.size())
         input_shape = inputs.shape  # bsz × decompose × D or (bsz * decompose) × D [batch,64]
         print("input_shape",input_shape)
         # Flatten input (bsz * decompose) × D
@@ -117,6 +117,9 @@ class VectorQuantizer(nn.Module):
             quantized_st = packed_seq_util.postprocess(quantized_st, pad=0.0)
             encoding_indices = packed_seq_util.postprocess(encoding_indices, pad=-1)
             min_distances = packed_seq_util.postprocess(min_distances, pad=-1)
+            print("quantized_st",quantized_st,quantized_st.size())
+            print("encoding_indices",encoding_indices,encoding_indices.size())
+            print("min_distances",min_distances,min_distances.size())
         else:
             encoding_indices = encoding_indices.contiguous().view(input_shape[:-1])
             min_distances = min_distances.contiguous().view(input_shape[:-1])
@@ -128,7 +131,7 @@ class VectorQuantizer(nn.Module):
             "min_distances": min_distances,
             "loss_commit": loss_commit,
         }
-
+        exit()
         return output_dict
 
     def ema_init(self):
@@ -212,10 +215,10 @@ class DVQ(nn.Module):
         """
         inputs: B × T (optional) × (M * D)
         """
-        print("inputs",inputs, inputs.size()) #[batch,256]
+        print("inputs",inputs) #[batch,256]
         slices = self.decompose(inputs, self.decompose_option) #这里slices变成4了 就是看几个离散向量代表一个句子/单词
         print("slices",slices)
-       
+        
         # apply vq to each slice separately
         vq_out_list = []
         for slice, vq_layer in zip(slices, self.vq_layers):
@@ -232,6 +235,7 @@ class DVQ(nn.Module):
                 aggregate_out[k].append(vq_out[k])
         print("aggregate_out",aggregate_out)
         
+        
         # combine by concatenation
         quantized = torch.cat(aggregate_out["quantized"], dim=-1)
         # sum losses
@@ -243,7 +247,7 @@ class DVQ(nn.Module):
 
         # combine by stacking, can do sum or mean later on
         quantized_stack = torch.stack(aggregate_out["quantized"], dim=-2) #把M个向量聚合起来（1，batch，64）+（1，batch，64）.。=（M，batch，64）
-        print("quantized_stack",quantized_stack)
+        # print("quantized_stack",quantized_stack)
         output_dict = {
             # B × T (optional) × (M * D)
             "quantized": quantized,

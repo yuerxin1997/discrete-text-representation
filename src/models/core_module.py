@@ -280,7 +280,7 @@ class TransformerQuantizerEncoder(nn.Module):
                 config,
                 num_embeddings=config.quantizer.K, #256
                 embedding_dim=D, #64
-                split=split, #4
+                split=split, #1
                 decompose_option="slice",
             )
             self.project_before_quantizer = lambda x: x
@@ -316,31 +316,32 @@ class TransformerQuantizerEncoder(nn.Module):
 
         self.output_dim = config.transformer.d_model #64
 
-    def forward(self, src):#src = [batch,52]52是这个batch中最长序列
-        print("src",src,src.size())
-        src_pad_mask = src == 0 #[batch,52]为0的地方是true
+    def forward(self, src):#src = [batch, batch_len] batch_len是这个batch中最长序列
+        # print("src",src,src.size())
+        src_pad_mask = src == 0 #[batch, batch_len] 为0的地方是true
         # print("src_pad_mask",src_pad_mask)
-        src_nopad_mask = src != 0 #[batch,52]不为0的地方是true
+        src_nopad_mask = src != 0 #[batch, batch_len] 不为0的地方是true
         # print("src_nopad_mask",src_nopad_mask)
         nopad_lengths = src_nopad_mask.sum(dim=-1).long() #[batch] 每个句子中不为0的数量
         # print("nopad_lengths",nopad_lengths)
-        src_emb = self.embedding(src).transpose(0, 1) #[52,batch,64]
+        src_emb = self.embedding(src).transpose(0, 1) #[batch_len,batch,64]
         # print("src_emb",src_emb,src_emb.size())
-        src_emb = self.pos_encoder(src_emb)#[52,batch,64]
+        src_emb = self.pos_encoder(src_emb)#[batch_len,batch,64]
         # print("src_emb",src_emb,src_emb.size())
         src_mask = None
 
         memory = self.encoder(
             src_emb, src_key_padding_mask=src_pad_mask, mask=src_mask
-        ).transpose(0, 1) #[batch,52,64]
-        # print("memory",memory,memory.size())
+        ).transpose(0, 1) #[batch, batch_len, 64]
+        print("memory",memory,memory.size())
 
         if self.quantizer_level == "word":
             # bsz × T × (M * D) or bsz × T × (M * K)
-            memory = self.project_before_quantizer(memory)
+            memory = self.project_before_quantizer(memory) # [batch, batch_len, 64] 这里没有操作。
             packed_memory = pack_padded_sequence(
                 memory, lengths=nopad_lengths, batch_first=True, enforce_sorted=False
-            )
+            ) #把原来为0的地方给处理了，返回两个参数 data和batch_sizes https://zhuanlan.zhihu.com/p/342685890
+            print("packed_memory", packed_memory)
             quantizer_out = self.quantizer(packed_memory)
             # bsz × T × (M * D)
             enc_out = quantizer_out["quantized"]
@@ -349,17 +350,17 @@ class TransformerQuantizerEncoder(nn.Module):
             # seq2vec: mean pooling to get sentence representation
             # bsz × (M * D) or bsz × (M * K)
             pooled_memory = self.pooler(memory, src_nopad_mask)#[batch,256]
-            print("pooled_memory", pooled_memory, pooled_memory.size())
+            # print("pooled_memory", pooled_memory, pooled_memory.size())
             quantizer_out = self.quantizer(pooled_memory) #dict key有“quantized”, "quantized_stack", "encoding_indices"
-            print("quantizer_out",quantizer_out)
+            # print("quantizer_out",quantizer_out)
             
             # mask is filled with 1, bsz × M
             # src_nopad_mask = torch.ones_like(quantizer_out['encoding_indices'])
             src_nopad_mask = quantizer_out["encoding_indices"] != -1
-            print("src_nopad_mask",src_nopad_mask,src_nopad_mask.size())
+            # print("src_nopad_mask",src_nopad_mask,src_nopad_mask.size())
             # bsz × M × D
             enc_out = quantizer_out["quantized_stack"] #[batch,4,64]
-            print("enc_out",enc_out,enc_out.size())
+            # print("enc_out",enc_out,enc_out.size())
 
         return {
             "quantizer_out": quantizer_out,
@@ -429,15 +430,17 @@ class TransformerEncoderDecoder(nn.Module):
         self.kl_beta = config.concrete.kl.beta
 
     def forward(self, batch):
-        print("batch",batch,batch["input1"]["words"].size())
+        print("batch", batch,batch["input1"]["words"].size())
+        
         input = input_from_batch(batch)
-        src = input["enc_in"] #[batch,batch,len]
+        src = input["enc_in"] #[batch,batch_len]
         bsz = src.shape[0]
 
         # encoderrc
         enc_outdict = self.encoder(src)
-        memory = enc_outdict["sequence"].transpose(0, 1)
+        memory = enc_outdict["sequence"].transpose(0, 1) #[batch_len, batch, 64]
         print("memory",memory,memory.size())
+        exit()
         return self.decode(input, memory, enc_outdict)
 
     def decode(self, input, memory, enc_outdict):
@@ -445,12 +448,12 @@ class TransformerEncoderDecoder(nn.Module):
         # teacher forcing 
         #1. 计算gold tgt_emb
         dec_out_gold = input["dec_out_gold"]
-        print("dec_out_gold",dec_out_gold)
+        # print("dec_out_gold",dec_out_gold)
         tgt = input["dec_in"]
-        print("tgt",tgt)
+        # print("tgt",tgt)
         tgt_emb = self.encoder.embedding(tgt).transpose(0, 1)
         tgt_emb = self.encoder.pos_encoder(tgt_emb)
-        print("tgt_emb",tgt_emb,tgt_emb.size())
+        # print("tgt_emb",tgt_emb,tgt_emb.size())
         bsz = input["enc_in"].shape[0]
 
         tgt_pad_mask = tgt == 0
@@ -469,13 +472,13 @@ class TransformerEncoderDecoder(nn.Module):
         )
 
         output = output.transpose(0, 1)
-        print("output",output, output.size())
+        # print("output",output, output.size())
         # classifier
         logprobs = self.classifier(output)
-        print("logprobs",logprobs,logprobs.size())
+        # print("logprobs",logprobs,logprobs.size())
         #3. 计算loss function
         dec_outdict = self.decoding_util.forward(logprobs, dec_out_gold) 
-        print("dec_outdict",dec_outdict)
+        # print("dec_outdict",dec_outdict)
         loss_reconstruct = dec_outdict["loss"]
         pred_idx = dec_outdict["pred_idx"]
         ntokens = dec_outdict["ntokens"]

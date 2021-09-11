@@ -61,23 +61,17 @@ class Trainer(object):
         output_dict = model(batch)
         loss = output_dict["loss"]        
         loss.div(batch_size).backward()
-        print("loss",loss)
+        # print("loss",loss)
         if config.pretrain.grad_norm: #grad_norm=5
             clip_grad_norm_(model.parameters(), config.pretrain.grad_norm)
         i = 0
-        for name, parameter in model.encoder.named_parameters():
-            print("name parameter before", name, parameter)
-            i = i + 1
-            if i == 3 :
-                break
+        # for name, parameter in model.encoder.named_parameters():
+        #     print("name parameter before", name, parameter)
+        #     i = i + 1
+        #     if i == 3 :
+        #         break
         optimizer.step()
         i = 0
-        for name, parameter in model.encoder.named_parameters():
-            print("name parameter after", name, parameter)
-            i = i + 1
-            if i == 3 :
-                break
-        exit()
         # training progress statistics
         self.scorer.update(output_dict, batch_size)
 
@@ -130,14 +124,14 @@ class Trainer(object):
             config.pretrain.patience, should_decrease=True
         )  # perplexity patience=5
         tr_generator, n_tr_batches = self.get_train_generator(task, config)
-        print("n_tr_batches",n_tr_batches)
+        # print("n_tr_batches",n_tr_batches)
         self.scorer = MetricForPretrain(config.quantizer.type)
         prev_ckpt = self.load_train_checkpoint(config, tr_generator, n_tr_batches)
         start_time = time.time()
 
         for batch in tr_generator:
             batch = move_to_device(batch, cuda_device)
-            print("input1",batch["input1"]["words"].size())
+            # print("input1",batch["input1"]["words"].size())
             self.global_step += 1
             epoch_idx = int((self.global_step - 1) / n_tr_batches) + 1
             # max epoch
@@ -242,6 +236,7 @@ class Trainer(object):
         head = "--- Last Batch in Validation Set ---"
         log.info("\n" + head)
         indices = output_dict["indices"].squeeze().cpu().numpy().tolist()
+        # print("indices",indices)
         sentences = batch["sent_str1"]
         pred_idx = output_dict["pred_idx"]
         pred_token = np.array(

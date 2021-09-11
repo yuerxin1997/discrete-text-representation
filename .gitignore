@@ -7,4 +7,6 @@ default.profraw
 
 exp
 data_dir
+demo
+cls_data_dir
 *ipynb*

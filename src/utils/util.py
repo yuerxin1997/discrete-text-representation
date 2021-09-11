@@ -175,10 +175,13 @@ def calculate_kl_bound(config):
 def input_from_batch(batch):
     sent = batch["input1"]["words"]  # shape (batch_size, seq_len)
     batch_size, seq_len = sent.size()
-
+    # print("pad_idx",pad_idx)
+    # print("sos_idx",sos_idx)
+    # print("eos_idx",eos_idx)
+    # exit()
     # no <SOS> and <EOS>
     enc_in = sent[:, 1:-1].clone()
-    enc_in[enc_in == eos_idx] = pad_idx
+    enc_in[enc_in == eos_idx] = pad_idx  #pad_idx=0, unkonwn_idx=1, sos_idx=2, eos_idx=3.
 
     # no <SOS>
     dec_out_gold = sent[:, 1:].contiguous()
